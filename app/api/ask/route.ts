@@ -5,6 +5,7 @@ export async function POST(req: NextRequest) {
   try {
     const { question, repo, fileTree } = await req.json()
 
+    console.log("[v0] Groq key exists:", !!process.env.GROQ_API_KEY)
     console.log("[v0] /api/ask received:", {
       question,
       repo,
