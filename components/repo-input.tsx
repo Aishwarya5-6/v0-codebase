@@ -15,17 +15,28 @@ interface RepoInputProps {
 export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
   const [url, setUrl] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('[v0] Explore button clicked, url:', url, 'isLoading:', isLoading)
-    if (!url.trim() || isLoading) return
+  const handleExplore = () => {
+    console.log('[v0] handleExplore called')
+    console.log('[v0] url value:', url)
+    console.log('[v0] isLoading:', isLoading)
+    
+    if (!url.trim()) {
+      console.log('[v0] URL is empty, returning')
+      return
+    }
+    if (isLoading) {
+      console.log('[v0] Already loading, returning')
+      return
+    }
+    
+    console.log('[v0] Calling onFetch with:', url.trim())
     onFetch(url.trim())
   }
 
-  const handleButtonClick = () => {
-    console.log('[v0] Button onClick fired directly')
-    if (!url.trim() || isLoading) return
-    onFetch(url.trim())
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log('[v0] Form submitted')
+    handleExplore()
   }
 
   const parseRepoName = (repoUrl: string) => {
@@ -59,10 +70,10 @@ export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
             />
           </div>
           <Button 
-            type="submit" 
+            type="button" 
             size="sm" 
             disabled={isLoading}
-            onClick={handleButtonClick}
+            onClick={handleExplore}
             className="h-9 pointer-events-auto"
             style={{ pointerEvents: 'auto' }}
           >
