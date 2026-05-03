@@ -1,6 +1,6 @@
-'use client'
+"use client"
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback } from "react"
 import { RepoInput } from '@/components/repo-input'
 import { FileTree, FileNode } from '@/components/file-tree'
 import { ChatPanel } from '@/components/chat-panel'
