@@ -23,10 +23,12 @@ interface FilesUsedMap {
 export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
   const [input, setInput] = useState('')
   const [filesUsed, setFilesUsed] = useState<FilesUsedMap>({})
+  const [warning, setWarning] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   
   // Extract repo from URL for the API
   const repo = repoUrl ? repoUrl.replace('https://github.com/', '').replace(/\/$/, '') : ''
+  const isRepoLoaded = !!repoUrl && !!fileTree && fileTree.trim().length > 0
   
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ 
@@ -96,10 +98,12 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading || !repoUrl) {
-      console.log('[v0] Chat submit blocked - input:', !!input.trim(), 'loading:', isLoading, 'repoUrl:', !!repoUrl)
+    if (!input.trim() || isLoading) return
+    if (!isRepoLoaded) {
+      setWarning('Load a repo first')
       return
     }
+    setWarning(null)
     console.log('[v0] Calling /api/ask')
     sendMessage({ text: input })
     setInput('')
@@ -129,7 +133,7 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
               Ask about the codebase
             </h3>
             <p className="text-xs text-muted-foreground max-w-[240px]">
-              {repoUrl 
+              {isRepoLoaded 
                 ? "I can help you understand the code structure, explain files, and answer questions."
                 : "Load a repository first to start exploring with AI."}
             </p>
@@ -211,13 +215,21 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="border-t border-border p-4">
+        {warning && (
+          <div className="mb-2 text-xs text-destructive font-medium">
+            {warning}
+          </div>
+        )}
         <div className="flex gap-2">
           <Textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value)
+              if (warning) setWarning(null)
+            }}
             onKeyDown={handleKeyDown}
-            placeholder={repoUrl ? "Ask about this codebase..." : "Load a repo first..."}
-            disabled={isLoading}
+            placeholder={isRepoLoaded ? "Ask about this codebase..." : "Load a repo first..."}
+            disabled={isLoading || !isRepoLoaded}
             className="min-h-[44px] max-h-[120px] resize-none bg-secondary border-0 text-sm pointer-events-auto"
             style={{ pointerEvents: 'auto' }}
             rows={1}
@@ -225,7 +237,7 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
           <Button
             type="submit"
             size="icon"
-            disabled={isLoading || !repoUrl}
+            disabled={isLoading || !isRepoLoaded || !input.trim()}
             className="shrink-0 pointer-events-auto"
             style={{ pointerEvents: 'auto' }}
           >

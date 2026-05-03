@@ -60,7 +60,7 @@ export default function Home() {
         throw new Error(data.error || 'Failed to fetch repository')
       }
 
-      console.log('[v0] File tree loaded')
+      console.log('[v0] File tree loaded successfully')
       setFileTree(data.tree)
       setFileTreeString(fileTreeToString(data.tree))
       setCurrentRepo(`https://github.com/${repo}`)
