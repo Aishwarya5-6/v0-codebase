@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
         : typeof fileTree === "string"
         ? fileTree.length
         : 0,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
     })
 
     if (!question || !repo) {
@@ -58,7 +59,18 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ answer })
   } catch (error) {
-    console.error("[v0] /api/ask error:", error)
-    return Response.json({ error: "Something went wrong" }, { status: 500 })
+    const err = error as Error
+    console.error("[v0] /api/ask error:", err)
+    console.error("[v0] error.message:", err?.message)
+    console.error("[v0] error.stack:", err?.stack)
+    console.error("[v0] OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY)
+
+    return Response.json(
+      {
+        error: err?.message || "Something went wrong",
+        stack: err?.stack,
+      },
+      { status: 500 }
+    )
   }
 }
