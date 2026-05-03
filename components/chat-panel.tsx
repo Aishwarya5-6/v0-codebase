@@ -1,15 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { Send, Bot, User, Sparkles } from 'lucide-react'
+import { Send, Bot, User, Sparkles, FileCode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
+import { Badge } from '@/components/ui/badge'
 
 interface ChatPanelProps {
   repoUrl: string
@@ -17,18 +16,77 @@ interface ChatPanelProps {
   selectedFile?: string
 }
 
+interface FilesUsedMap {
+  [messageId: string]: string[]
+}
+
 export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
   const [input, setInput] = useState('')
+  const [filesUsed, setFilesUsed] = useState<FilesUsedMap>({})
   const scrollRef = useRef<HTMLDivElement>(null)
+  
+  // Extract repo from URL for the API
+  const repo = repoUrl ? repoUrl.replace('https://github.com/', '').replace(/\/$/, '') : ''
   
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ 
-      api: '/api/chat',
-      body: { repoUrl, fileTree, selectedFile }
+      api: '/api/ask',
+      prepareSendMessagesRequest: ({ messages: msgs }) => {
+        const lastMessage = msgs[msgs.length - 1]
+        const questionText = lastMessage?.parts
+          ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+          .map(p => p.text)
+          .join('') || ''
+        
+        return {
+          body: {
+            question: questionText,
+            repo,
+            fileTree,
+            selectedFile,
+          },
+        }
+      },
+      fetch: async (url, options) => {
+        const response = await fetch(url, options)
+        
+        // Extract files used from header
+        const filesHeader = response.headers.get('X-Files-Used')
+        if (filesHeader) {
+          try {
+            const files = JSON.parse(filesHeader)
+            // We'll associate this with the next assistant message
+            setFilesUsed(prev => ({
+              ...prev,
+              _pending: files,
+            }))
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        
+        return response
+      },
     }),
   })
 
   const isLoading = status === 'streaming' || status === 'submitted'
+
+  // Associate pending files with the latest assistant message
+  useEffect(() => {
+    if (filesUsed._pending && messages.length > 0) {
+      const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
+      if (lastAssistantMsg) {
+        setFilesUsed(prev => {
+          const { _pending, ...rest } = prev
+          return {
+            ...rest,
+            [lastAssistantMsg.id]: _pending,
+          }
+        })
+      }
+    }
+  }, [messages, filesUsed._pending])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -39,7 +97,7 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
-    sendMessage({ text: input }, { body: { repoUrl, fileTree, selectedFile } })
+    sendMessage({ text: input })
     setInput('')
   }
 
@@ -75,46 +133,63 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  'flex gap-3',
-                  message.role === 'user' && 'flex-row-reverse'
+              <div key={message.id} className="space-y-2">
+                <div
+                  className={cn(
+                    'flex gap-3',
+                    message.role === 'user' && 'flex-row-reverse'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground'
+                    )}
+                  >
+                    {message.role === 'user' ? (
+                      <User className="h-4 w-4" />
+                    ) : (
+                      <Bot className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div
+                    className={cn(
+                      'rounded-lg px-3 py-2 text-sm max-w-[85%]',
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground'
+                    )}
+                  >
+                    {message.parts.map((part, index) => {
+                      if (part.type === 'text') {
+                        return (
+                          <div key={index} className="whitespace-pre-wrap">
+                            {part.text}
+                          </div>
+                        )
+                      }
+                      return null
+                    })}
+                  </div>
+                </div>
+                
+                {/* Show referenced files for assistant messages */}
+                {message.role === 'assistant' && filesUsed[message.id] && filesUsed[message.id].length > 0 && (
+                  <div className="ml-10 flex flex-wrap gap-1.5">
+                    <FileCode className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+                    {filesUsed[message.id].map((file) => (
+                      <Badge 
+                        key={file} 
+                        variant="secondary" 
+                        className="text-xs font-mono px-1.5 py-0"
+                      >
+                        {file.split('/').pop()}
+                      </Badge>
+                    ))}
+                  </div>
                 )}
-              >
-                <div
-                  className={cn(
-                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground'
-                  )}
-                >
-                  {message.role === 'user' ? (
-                    <User className="h-4 w-4" />
-                  ) : (
-                    <Bot className="h-4 w-4" />
-                  )}
-                </div>
-                <div
-                  className={cn(
-                    'rounded-lg px-3 py-2 text-sm max-w-[85%]',
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground'
-                  )}
-                >
-                  {message.parts.map((part, index) => {
-                    if (part.type === 'text') {
-                      return (
-                        <div key={index} className="whitespace-pre-wrap">
-                          {part.text}
-                        </div>
-                      )
-                    }
-                    return null
-                  })}
-                </div>
               </div>
             ))}
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
