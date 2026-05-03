@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server"
 
+// Forces dev server to re-read env vars
 export async function POST(req: NextRequest) {
   try {
     const { question, repo, fileTree } = await req.json()
