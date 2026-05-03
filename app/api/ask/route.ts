@@ -110,15 +110,48 @@ async function fetchFileContent(
   }
 }
 
+async function fetchRepoFileList(
+  owner: string,
+  repo: string,
+  token?: string
+): Promise<string[]> {
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'Codebase-Explorer-AI',
+  }
+  if (token) headers['Authorization'] = `token ${token}`
+
+  try {
+    // Get default branch
+    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers })
+    if (!repoRes.ok) return []
+    const repoData = await repoRes.json()
+    const branch = repoData.default_branch || 'main'
+
+    // Get file tree recursively
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
+      { headers }
+    )
+    if (!treeRes.ok) return []
+    const treeData = await treeRes.json()
+    
+    return (treeData.tree || [])
+      .filter((item: { type: string; path: string }) => item.type === 'blob')
+      .map((item: { path: string }) => item.path)
+  } catch {
+    return []
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { question, repo, fileTree } = await req.json()
     
-    if (!question || !repo || !fileTree) {
+    if (!question || !repo) {
       const missing = [
         !question && 'question',
         !repo && 'repo',
-        !fileTree && 'fileTree',
       ].filter(Boolean).join(', ')
       
       return Response.json(
@@ -135,18 +168,25 @@ export async function POST(req: Request) {
       )
     }
     
-    // Parse file tree string to get file paths
-    const allFiles = fileTree
-      .split('\n')
-      .map((line: string) => line.trim())
-      .filter((line: string) => line && !line.endsWith('/'))
+    const token = process.env.GITHUB_TOKEN
+    
+    // Parse file tree string to get file paths, or fetch from GitHub if missing
+    let allFiles: string[] = []
+    if (fileTree && typeof fileTree === 'string' && fileTree.trim().length > 0) {
+      allFiles = fileTree
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter((line: string) => line && !line.endsWith('/'))
+    } else {
+      console.log('[v0] fileTree missing, fetching from GitHub')
+      allFiles = await fetchRepoFileList(owner, repoName, token)
+    }
     
     // Select relevant files based on the question
     const selectedPaths = selectRelevantFiles(allFiles, question)
     
     // Fetch file contents
     const fileContents: FileContent[] = []
-    const token = process.env.GITHUB_TOKEN
     
     for (const path of selectedPaths) {
       const content = await fetchFileContent(owner, repoName, path, token)
