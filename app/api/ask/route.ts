@@ -1,9 +1,4 @@
 import { NextRequest } from "next/server"
-import OpenAI from "openai"
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +13,7 @@ export async function POST(req: NextRequest) {
         : typeof fileTree === "string"
         ? fileTree.length
         : 0,
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      hasGroqKey: !!process.env.GROQ_API_KEY,
     })
 
     if (!question || !repo) {
@@ -38,38 +33,51 @@ export async function POST(req: NextRequest) {
       context = fileTree.split("\n").slice(0, 50).join("\n")
     }
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an expert software engineer who explains codebases clearly and practically.",
-        },
-        {
-          role: "user",
-          content: `Repository: ${repo}\n\nFiles:\n${context}\n\nQuestion: ${question}`,
-        },
-      ],
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an expert software engineer who explains codebases clearly and practically.",
+          },
+          {
+            role: "user",
+            content: `Repository: ${repo}\n\nFiles:\n${context}\n\nQuestion: ${question}`,
+          },
+        ],
+      }),
     })
 
-    const answer = response.choices[0].message.content
+    const data = await response.json()
 
-    console.log("[v0] /api/ask answer length:", answer?.length || 0)
+    if (!response.ok) {
+      console.error("[v0] Groq API error:", data)
+      return Response.json(
+        { error: data?.error?.message || "Groq API request failed" },
+        { status: response.status }
+      )
+    }
+
+    const answer = data.choices?.[0]?.message?.content || "No response"
+
+    console.log("[v0] /api/ask answer length:", answer.length)
 
     return Response.json({ answer })
   } catch (error) {
     const err = error as Error
-    console.error("[v0] /api/ask error:", err)
+    console.error("[v0] Groq error:", err)
     console.error("[v0] error.message:", err?.message)
     console.error("[v0] error.stack:", err?.stack)
-    console.error("[v0] OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY)
 
     return Response.json(
-      {
-        error: err?.message || "Something went wrong",
-        stack: err?.stack,
-      },
+      { error: err?.message || "Something went wrong" },
       { status: 500 }
     )
   }
