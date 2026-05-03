@@ -96,7 +96,11 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || !repoUrl) {
+      console.log('[v0] Chat submit blocked - input:', !!input.trim(), 'loading:', isLoading, 'repoUrl:', !!repoUrl)
+      return
+    }
+    console.log('[v0] Calling /api/ask')
     sendMessage({ text: input })
     setInput('')
   }
@@ -221,7 +225,7 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
           <Button
             type="submit"
             size="icon"
-            disabled={isLoading}
+            disabled={isLoading || !repoUrl}
             className="shrink-0 pointer-events-auto"
             style={{ pointerEvents: 'auto' }}
           >

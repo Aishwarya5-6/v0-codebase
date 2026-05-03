@@ -40,45 +40,37 @@ export default function Home() {
   }
 
   const handleFetchRepo = useCallback(async (url: string) => {
-    console.log('[v0] handleFetchRepo called with url:', url)
     setIsLoading(true)
     setError(null)
 
     const repo = extractRepoFromUrl(url)
-    console.log('[v0] Extracted repo:', repo)
     
     if (!repo) {
-      console.log('[v0] Invalid repo format')
       setError('Invalid GitHub URL. Use format: https://github.com/owner/repo or owner/repo')
       setIsLoading(false)
       return
     }
 
     try {
-      console.log('[v0] Fetching from /api/github?repo=' + encodeURIComponent(repo))
+      console.log('[v0] Calling /api/github')
       const response = await fetch(`/api/github?repo=${encodeURIComponent(repo)}`)
-      console.log('[v0] Response status:', response.status)
       const data = await response.json()
-      console.log('[v0] Response data:', data)
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch repository')
       }
 
-      console.log('[v0] Setting file tree with', data.tree?.length, 'items')
+      console.log('[v0] File tree loaded')
       setFileTree(data.tree)
       setFileTreeString(fileTreeToString(data.tree))
       setCurrentRepo(`https://github.com/${repo}`)
       setSelectedFile(undefined)
-      console.log('[v0] State updated successfully')
     } catch (err) {
-      console.log('[v0] Error occurred:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
       setFileTree([])
       setFileTreeString('')
     } finally {
       setIsLoading(false)
-      console.log('[v0] Loading finished')
     }
   }, [])
 

@@ -16,26 +16,12 @@ export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
   const [url, setUrl] = useState('')
 
   const handleExplore = () => {
-    console.log('[v0] handleExplore called')
-    console.log('[v0] url value:', url)
-    console.log('[v0] isLoading:', isLoading)
-    
-    if (!url.trim()) {
-      console.log('[v0] URL is empty, returning')
-      return
-    }
-    if (isLoading) {
-      console.log('[v0] Already loading, returning')
-      return
-    }
-    
-    console.log('[v0] Calling onFetch with:', url.trim())
+    if (!url.trim() || isLoading) return
     onFetch(url.trim())
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('[v0] Form submitted')
     handleExplore()
   }
 
