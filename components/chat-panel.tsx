@@ -213,15 +213,17 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={repoUrl ? "Ask about this codebase..." : "Load a repo first..."}
-            disabled={isLoading || !repoUrl}
-            className="min-h-[44px] max-h-[120px] resize-none bg-secondary border-0 text-sm"
+            disabled={isLoading}
+            className="min-h-[44px] max-h-[120px] resize-none bg-secondary border-0 text-sm pointer-events-auto"
+            style={{ pointerEvents: 'auto' }}
             rows={1}
           />
           <Button
             type="submit"
             size="icon"
-            disabled={!input.trim() || isLoading || !repoUrl}
-            className="shrink-0"
+            disabled={isLoading}
+            className="shrink-0 pointer-events-auto"
+            style={{ pointerEvents: 'auto' }}
           >
             <Send className="h-4 w-4" />
           </Button>

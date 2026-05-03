@@ -17,6 +17,13 @@ export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('[v0] Explore button clicked, url:', url, 'isLoading:', isLoading)
+    if (!url.trim() || isLoading) return
+    onFetch(url.trim())
+  }
+
+  const handleButtonClick = () => {
+    console.log('[v0] Button onClick fired directly')
     if (!url.trim() || isLoading) return
     onFetch(url.trim())
   }
@@ -31,8 +38,8 @@ export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
   }
 
   return (
-    <div className="border-b border-border bg-card">
-      <div className="flex items-center gap-4 px-4 py-3">
+    <div className="border-b border-border bg-card relative z-50">
+      <div className="flex items-center gap-4 px-4 py-3 relative z-50">
         <div className="flex items-center gap-2">
           <Github className="h-5 w-5 text-primary" />
           <span className="text-sm font-semibold text-foreground hidden sm:inline">
@@ -40,22 +47,24 @@ export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
           </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 items-center gap-2 max-w-2xl">
+        <form onSubmit={handleSubmit} className="flex flex-1 items-center gap-2 max-w-2xl relative z-50">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Enter GitHub repository URL..."
-              className="pl-9 bg-secondary border-0 h-9 text-sm"
-              disabled={isLoading}
+              className="pl-9 bg-secondary border-0 h-9 text-sm pointer-events-auto"
+              style={{ pointerEvents: 'auto' }}
             />
           </div>
           <Button 
             type="submit" 
             size="sm" 
-            disabled={!url.trim() || isLoading}
-            className="h-9"
+            disabled={isLoading}
+            onClick={handleButtonClick}
+            className="h-9 pointer-events-auto"
+            style={{ pointerEvents: 'auto' }}
           >
             {isLoading ? (
               <>
