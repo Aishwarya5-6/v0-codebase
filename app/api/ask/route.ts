@@ -1,4 +1,4 @@
-import { streamText, convertToModelMessages } from 'ai'
+import { streamText } from 'ai'
 
 interface FileContent {
   path: string
@@ -114,9 +114,15 @@ export async function POST(req: Request) {
   try {
     const { question, repo, fileTree } = await req.json()
     
-    if (!question || !repo) {
+    if (!question || !repo || !fileTree) {
+      const missing = [
+        !question && 'question',
+        !repo && 'repo',
+        !fileTree && 'fileTree',
+      ].filter(Boolean).join(', ')
+      
       return Response.json(
-        { error: 'Missing required fields: question and repo' },
+        { error: `Missing required fields: ${missing}` },
         { status: 400 }
       )
     }
@@ -131,8 +137,9 @@ export async function POST(req: Request) {
     
     // Parse file tree string to get file paths
     const allFiles = fileTree
-      ? fileTree.split('\n').map((line: string) => line.trim()).filter((line: string) => line && !line.endsWith('/'))
-      : []
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line && !line.endsWith('/'))
     
     // Select relevant files based on the question
     const selectedPaths = selectRelevantFiles(allFiles, question)
@@ -159,14 +166,10 @@ Repository: ${owner}/${repoName}
 
 ${filesContext}`
 
-    const messages = await convertToModelMessages([
-      { role: 'user', content: question }
-    ])
-
     const result = streamText({
       model: 'anthropic/claude-sonnet-4-20250514',
       system: systemPrompt,
-      messages,
+      messages: [{ role: 'user', content: question }],
     })
 
     // Return streaming response with metadata in headers

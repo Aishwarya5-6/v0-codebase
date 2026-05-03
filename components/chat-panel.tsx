@@ -40,14 +40,21 @@ export function ChatPanel({ repoUrl, fileTree, selectedFile }: ChatPanelProps) {
           .map(p => p.text)
           .join('') || ''
         
-        return {
-          body: {
-            question: questionText,
-            repo,
-            fileTree,
-            selectedFile,
-          },
+        const payload = {
+          question: questionText,
+          repo,
+          fileTree,
+          selectedFile,
         }
+        
+        console.log('[v0] Sending /api/ask payload:', {
+          question: payload.question,
+          repo: payload.repo,
+          fileTreeLength: payload.fileTree?.length || 0,
+          selectedFile: payload.selectedFile,
+        })
+        
+        return { body: payload }
       },
       fetch: async (url, options) => {
         const response = await fetch(url, options)
