@@ -44,6 +44,7 @@ export default function Home() {
     setError(null)
 
     const repo = extractRepoFromUrl(url)
+    
     if (!repo) {
       setError('Invalid GitHub URL. Use format: https://github.com/owner/repo or owner/repo')
       setIsLoading(false)
@@ -51,6 +52,7 @@ export default function Home() {
     }
 
     try {
+      console.log('[v0] Calling /api/github')
       const response = await fetch(`/api/github?repo=${encodeURIComponent(repo)}`)
       const data = await response.json()
 
@@ -58,6 +60,7 @@ export default function Home() {
         throw new Error(data.error || 'Failed to fetch repository')
       }
 
+      console.log('[v0] File tree loaded successfully')
       setFileTree(data.tree)
       setFileTreeString(fileTreeToString(data.tree))
       setCurrentRepo(`https://github.com/${repo}`)

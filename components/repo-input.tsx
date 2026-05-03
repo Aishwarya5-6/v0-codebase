@@ -15,17 +15,14 @@ interface RepoInputProps {
 export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
   const [url, setUrl] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('[v0] Explore button clicked, url:', url, 'isLoading:', isLoading)
+  const handleExplore = () => {
     if (!url.trim() || isLoading) return
     onFetch(url.trim())
   }
 
-  const handleButtonClick = () => {
-    console.log('[v0] Button onClick fired directly')
-    if (!url.trim() || isLoading) return
-    onFetch(url.trim())
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleExplore()
   }
 
   const parseRepoName = (repoUrl: string) => {
@@ -59,10 +56,10 @@ export function RepoInput({ onFetch, isLoading, currentRepo }: RepoInputProps) {
             />
           </div>
           <Button 
-            type="submit" 
+            type="button" 
             size="sm" 
             disabled={isLoading}
-            onClick={handleButtonClick}
+            onClick={handleExplore}
             className="h-9 pointer-events-auto"
             style={{ pointerEvents: 'auto' }}
           >

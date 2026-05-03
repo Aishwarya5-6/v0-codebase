@@ -1,4 +1,4 @@
-import { streamText, convertToModelMessages } from 'ai'
+import { generateText } from 'ai'
 
 interface FileContent {
   path: string
@@ -110,13 +110,52 @@ async function fetchFileContent(
   }
 }
 
+async function fetchRepoFileList(
+  owner: string,
+  repo: string,
+  token?: string
+): Promise<string[]> {
+  const headers: HeadersInit = {
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'Codebase-Explorer-AI',
+  }
+  if (token) headers['Authorization'] = `token ${token}`
+
+  try {
+    // Get default branch
+    const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers })
+    if (!repoRes.ok) return []
+    const repoData = await repoRes.json()
+    const branch = repoData.default_branch || 'main'
+
+    // Get file tree recursively
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
+      { headers }
+    )
+    if (!treeRes.ok) return []
+    const treeData = await treeRes.json()
+    
+    return (treeData.tree || [])
+      .filter((item: { type: string; path: string }) => item.type === 'blob')
+      .map((item: { path: string }) => item.path)
+  } catch {
+    return []
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { question, repo, fileTree } = await req.json()
     
     if (!question || !repo) {
+      const missing = [
+        !question && 'question',
+        !repo && 'repo',
+      ].filter(Boolean).join(', ')
+      
       return Response.json(
-        { error: 'Missing required fields: question and repo' },
+        { error: `Missing required fields: ${missing}` },
         { status: 400 }
       )
     }
@@ -129,17 +168,25 @@ export async function POST(req: Request) {
       )
     }
     
-    // Parse file tree string to get file paths
-    const allFiles = fileTree
-      ? fileTree.split('\n').map((line: string) => line.trim()).filter((line: string) => line && !line.endsWith('/'))
-      : []
+    const token = process.env.GITHUB_TOKEN
+    
+    // Parse file tree string to get file paths, or fetch from GitHub if missing
+    let allFiles: string[] = []
+    if (fileTree && typeof fileTree === 'string' && fileTree.trim().length > 0) {
+      allFiles = fileTree
+        .split('\n')
+        .map((line: string) => line.trim())
+        .filter((line: string) => line && !line.endsWith('/'))
+    } else {
+      console.log('[v0] fileTree missing, fetching from GitHub')
+      allFiles = await fetchRepoFileList(owner, repoName, token)
+    }
     
     // Select relevant files based on the question
     const selectedPaths = selectRelevantFiles(allFiles, question)
     
     // Fetch file contents
     const fileContents: FileContent[] = []
-    const token = process.env.GITHUB_TOKEN
     
     for (const path of selectedPaths) {
       const content = await fetchFileContent(owner, repoName, path, token)
@@ -159,24 +206,16 @@ Repository: ${owner}/${repoName}
 
 ${filesContext}`
 
-    const messages = await convertToModelMessages([
-      { role: 'user', content: question }
-    ])
-
-    const result = streamText({
+    const { text } = await generateText({
       model: 'anthropic/claude-sonnet-4-20250514',
       system: systemPrompt,
-      messages,
+      messages: [{ role: 'user', content: question }],
     })
 
-    // Return streaming response with metadata in headers
-    const response = result.toUIMessageStreamResponse()
-    
-    // Add files used as a custom header
-    const filesUsed = fileContents.map(f => f.path)
-    response.headers.set('X-Files-Used', JSON.stringify(filesUsed))
-    
-    return response
+    return Response.json({
+      answer: text,
+      filesUsed: fileContents.map(f => f.path),
+    })
   } catch (error) {
     console.error('Error in /api/ask:', error)
     return Response.json(
