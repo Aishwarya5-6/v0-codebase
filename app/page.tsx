@@ -26,17 +26,32 @@ export default function Home() {
   const [currentRepo, setCurrentRepo] = useState<string>('')
   const [selectedFile, setSelectedFile] = useState<string>()
 
+  const extractRepoFromUrl = (url: string): string | null => {
+    // Handle full GitHub URLs
+    const match = url.match(/github\.com\/([^/]+\/[^/]+)/)
+    if (match) {
+      return match[1].replace(/\.git$/, '').split('#')[0].split('?')[0]
+    }
+    // Handle owner/repo format directly
+    if (/^[^/]+\/[^/]+$/.test(url.trim())) {
+      return url.trim()
+    }
+    return null
+  }
+
   const handleFetchRepo = useCallback(async (url: string) => {
     setIsLoading(true)
     setError(null)
 
-    try {
-      const response = await fetch('/api/repo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      })
+    const repo = extractRepoFromUrl(url)
+    if (!repo) {
+      setError('Invalid GitHub URL. Use format: https://github.com/owner/repo or owner/repo')
+      setIsLoading(false)
+      return
+    }
 
+    try {
+      const response = await fetch(`/api/github?repo=${encodeURIComponent(repo)}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -45,7 +60,7 @@ export default function Home() {
 
       setFileTree(data.tree)
       setFileTreeString(fileTreeToString(data.tree))
-      setCurrentRepo(url)
+      setCurrentRepo(`https://github.com/${repo}`)
       setSelectedFile(undefined)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
