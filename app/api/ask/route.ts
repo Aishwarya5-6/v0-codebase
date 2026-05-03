@@ -1,4 +1,4 @@
-import { streamText } from 'ai'
+import { generateText } from 'ai'
 
 interface FileContent {
   path: string
@@ -206,20 +206,16 @@ Repository: ${owner}/${repoName}
 
 ${filesContext}`
 
-    const result = streamText({
+    const { text } = await generateText({
       model: 'anthropic/claude-sonnet-4-20250514',
       system: systemPrompt,
       messages: [{ role: 'user', content: question }],
     })
 
-    // Return streaming response with metadata in headers
-    const response = result.toUIMessageStreamResponse()
-    
-    // Add files used as a custom header
-    const filesUsed = fileContents.map(f => f.path)
-    response.headers.set('X-Files-Used', JSON.stringify(filesUsed))
-    
-    return response
+    return Response.json({
+      answer: text,
+      filesUsed: fileContents.map(f => f.path),
+    })
   } catch (error) {
     console.error('Error in /api/ask:', error)
     return Response.json(
